@@ -15,12 +15,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, wait as futures
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-try:
-    import requests as _requests
-except ImportError:
-    _requests = None
-
-
 def _first_of(*values, default=None):
     """Return first value that is not None."""
     for v in values:
@@ -350,39 +344,18 @@ def _global_search(
     Returns:
         List of post dicts
     """
-    if not _requests:
-        _log("requests library not installed, falling back to urllib")
-        # Use stdlib http module as fallback
-        try:
-            from urllib.parse import urlencode
-            params = urlencode({"query": query, "sort": sort, "timeframe": timeframe})
-            url = f"{SCRAPECREATORS_BASE}/search?{params}"
-            headers = _sc_headers(token)
-            headers["User-Agent"] = http.USER_AGENT
-            data = http.get(url, headers=headers, timeout=30, retries=2)
-            return data.get("posts", data.get("data", []))
-        except http.HTTPError as e:
-            if e.status_code and e.status_code in (401, 403):
-                raise
-            _log(f"Global search error (urllib): {e}")
-            return []
-        except Exception as e:
-            _log(f"Global search error (urllib): {e}")
-            return []
-
     try:
-        resp = _requests.get(
+        data = http.get(
             f"{SCRAPECREATORS_BASE}/search",
-            params={"query": query, "sort": sort, "timeframe": timeframe},
             headers=_sc_headers(token),
+            params={"query": query, "sort": sort, "timeframe": timeframe},
             timeout=30,
+            retries=2,
         )
-        resp.raise_for_status()
-        data = resp.json()
         return data.get("posts", data.get("data", []))
-    except _requests.exceptions.HTTPError as e:
-        if e.response is not None and e.response.status_code in (401, 403):
-            raise http.HTTPError(f"Auth error: {e}", e.response.status_code)
+    except http.HTTPError as e:
+        if e.status_code in (401, 403):
+            raise
         _log(f"Global search error: {e}")
         return []
     except Exception as e:
@@ -409,36 +382,19 @@ def _subreddit_search(
     Returns:
         List of post dicts
     """
-    if not _requests:
-        try:
-            from urllib.parse import urlencode
-            params = urlencode({
-                "subreddit": subreddit, "query": query,
-                "sort": sort, "timeframe": timeframe,
-            })
-            url = f"{SCRAPECREATORS_BASE}/subreddit/search?{params}"
-            headers = _sc_headers(token)
-            headers["User-Agent"] = http.USER_AGENT
-            data = http.get(url, headers=headers, timeout=30, retries=2)
-            return data.get("posts", data.get("data", []))
-        except Exception as e:
-            _log(f"Subreddit search error (urllib) for r/{subreddit}: {e}")
-            return []
-
     try:
-        resp = _requests.get(
+        data = http.get(
             f"{SCRAPECREATORS_BASE}/subreddit/search",
+            headers=_sc_headers(token),
             params={
                 "subreddit": subreddit,
                 "query": query,
                 "sort": sort,
                 "timeframe": timeframe,
             },
-            headers=_sc_headers(token),
             timeout=30,
+            retries=2,
         )
-        resp.raise_for_status()
-        data = resp.json()
         return data.get("posts", data.get("data", []))
     except Exception as e:
         _log(f"Subreddit search error for r/{subreddit}: {e}")
@@ -458,28 +414,14 @@ def fetch_post_comments(
     Returns:
         List of comment dicts with score, author, body, etc.
     """
-    if not _requests:
-        try:
-            from urllib.parse import urlencode
-            params = urlencode({"url": url})
-            api_url = f"{SCRAPECREATORS_BASE}/post/comments?{params}"
-            headers = _sc_headers(token)
-            headers["User-Agent"] = http.USER_AGENT
-            data = http.get(api_url, headers=headers, timeout=30, retries=2)
-            return data.get("comments", data.get("data", []))
-        except Exception as e:
-            _log(f"Comment fetch error (urllib): {e}")
-            return []
-
     try:
-        resp = _requests.get(
+        data = http.get(
             f"{SCRAPECREATORS_BASE}/post/comments",
-            params={"url": url},
             headers=_sc_headers(token),
+            params={"url": url},
             timeout=30,
+            retries=2,
         )
-        resp.raise_for_status()
-        data = resp.json()
         return data.get("comments", data.get("data", []))
     except Exception as e:
         _log(f"Comment fetch error: {e}")
