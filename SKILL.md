@@ -156,6 +156,14 @@ The self-evolving loop is the sticky use case. Every 15 tool calls Hermes pauses
 Cron-scheduled autonomous briefings are the most-cited concrete workflow. r/TunisiaTech's "Use cases of OpenClaw, Hermes Agent" thread says it plainly: "Currently I have daily cron jobs for news briefing, but I know there's much more I can do."
 ```
 
+**LAW 7 - YOU ARE THE PLANNER. `--plan` IS MANDATORY ON NAMED-ENTITY TOPICS.** If you are the reasoning model hosting this skill (Claude Code, Codex, Hermes, Gemini, or any agent runtime that invoked `/last30days`), YOU generate the JSON query plan. You do not need an API key, "LLM provider" credentials, or an external planning service - you ARE the LLM. The `--plan` flag exists precisely so a reasoning model generates its own plan upstream and passes it to the engine. The engine's internal planner and deterministic fallback are headless/cron paths only; on any reasoning-model path, bypass them by passing `--plan '$JSON'`.
+
+Named-entity topics (capitalized proper nouns, product names, person names, project names, or any topic that would benefit from handle resolution in Step 0.55) REQUIRE `--plan`. Your invocation of `scripts/last30days.py` MUST contain `--plan '$JSON'`. A bare `python3 scripts/last30days.py "$TOPIC" --emit=compact` on a named-entity topic is a LAW 7 violation. Before you invoke Bash, self-check: does my command contain `--plan`? If no, STOP and generate a plan first (see Step 0.75 for the schema).
+
+**Observed LAW 7 violation (2026-04-19, Hermes Agent Use Cases Run 1):** the model called the engine bare with no `--plan`, no pre-flight handle resolution. The engine emitted a stderr warning ("No --plan and no LLM provider configured. Using deterministic fallback...") which the model read as a capability constraint ("I don't have a key, I can't do LLM stuff") instead of as what it actually was: a reminder that the reasoning model skipped its own planning step. The misread came from the word "provider" - the engine uses "provider" to mean "the key for the engine's INTERNAL planner," but the model parsed it as "I need a provider to plan at all." You do not. You ARE the provider. Run 2 of the same topic (2026-04-19, framed as "best workflows") with the same model and same cache generated the plan itself via `--plan` and produced clean results - the delta was this step.
+
+**Self-check before Bash:** re-read your pending `scripts/last30days.py` command. Does it contain `--plan '$JSON'`? If no, and the topic is a named entity, STOP. Return to Step 0.75 and generate the plan. Do not interpret the word "provider" in any engine message as "you need credentials" - you are the provider.
+
 End of OUTPUT CONTRACT. The laws above are the contract; everything below is implementation detail.
 
 ---
